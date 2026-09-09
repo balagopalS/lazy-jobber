@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lazy-Jobber — Autonomous Job Application Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/ui/app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Navigation / Header -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="logo-badge">⚡</div>
+        <div class="brand-text">
+          <span class="brand-title">lazy-jobber</span>
+          <span class="brand-subtitle">Autonomous CDP Job Suite</span>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <div id="connectionStatusBadge" class="badge badge-warning">
+          <span class="pulse-dot"></span>
+          <span id="connectionText">Checking Chrome CDP...</span>
+        </div>
+        <button id="btnCheckCdp" class="btn btn-secondary btn-sm" title="Re-check Chrome port 9222">
+          🔄 Check Port 9222
+        </button>
+        <button id="btnRestartAll" class="btn btn-danger btn-sm" title="Kill zombie processes & restart backend server">
+          ⚡ Restart Server
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="dashboard-grid">
+      <!-- Left Panel: Controls & Config -->
+      <aside class="sidebar-panel">
+        <!-- Profile Card -->
+        <section class="card profile-card">
+          <div class="card-header">
+            <span class="section-tag">CANDIDATE</span>
+            <span id="candidateExpBadge" class="tag tag-accent">Active Profile</span>
+          </div>
+          <h2 id="candidateName" class="candidate-title">Loading Candidate...</h2>
+          <p id="candidateEmail" class="candidate-meta text-muted">-</p>
+          <p id="candidateLocation" class="candidate-meta text-muted">-</p>
+          <div class="divider"></div>
+          <div class="skills-preview">
+            <label class="label-heading">Learned Skills:</label>
+            <div id="skillsPills" class="pills-container">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </section>
+
+        <!-- Automation Parameters -->
+        <section class="card config-card">
+          <div class="card-header">
+            <span class="section-tag">JOBBER PARAMETERS</span>
+          </div>
+          
+          <div class="form-group">
+            <label for="platformSelect">Target Platform</label>
+            <select id="platformSelect" class="form-input">
+              <option value="naukri" selected>Naukri.com (CDP Mode)</option>
+              <option value="linkedin" disabled>LinkedIn (Coming soon)</option>
+              <option value="indeed" disabled>Indeed (Coming soon)</option>
+            </select>
+            <span class="form-helper">Controls your live browser via Remote Debugging.</span>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="appLimitInput">Session Limit</label>
+              <input type="number" id="appLimitInput" class="form-input" value="40" min="1" max="100">
+            </div>
+            <div class="form-group">
+              <label for="minScoreInput">Min Match (%)</label>
+              <input type="number" id="minScoreInput" class="form-input" value="65" min="30" max="95">
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <button id="btnStartScan" class="btn btn-outline" disabled>
+              🔎 Scan Current Page
+            </button>
+            <button id="btnStartJobber" class="btn btn-primary" disabled>
+              🚀 Launch Auto-Apply
+            </button>
+            <button id="btnStopJobber" class="btn btn-danger" style="display: none;">
+              ⏹ Stop Execution
+            </button>
+          </div>
+
+          <div class="notice-box">
+            <strong>💡 Option B Remote Debugging:</strong>
+            <p>Ensure Chrome was launched via <code>launch_chrome.bat</code> and you are logged into Naukri.</p>
+          </div>
+        </section>
+      </aside>
+
+      <!-- Right Panel: Live Feed & Metrics -->
+      <section class="main-panel">
+        <!-- Top Metrics Row -->
+        <div class="metrics-row">
+          <div class="metric-card">
+            <span class="metric-label">Applications Target</span>
+            <span id="metricTarget" class="metric-value">40</span>
+            <span class="metric-sub text-muted">Daily limit cap</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Total Applied</span>
+            <span id="metricApplied" class="metric-value">0</span>
+            <span class="metric-sub text-accent">Active session</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Avg Suitability</span>
+            <span id="metricAvgMatch" class="metric-value">0%</span>
+            <span class="metric-sub text-muted">Skill overlap</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Engine Status</span>
+            <span id="metricStatus" class="metric-value status-idle">Ready</span>
+            <span id="metricStatusSub" class="metric-sub text-muted">Idle</span>
+          </div>
+        </div>
+
+        <!-- Activity Feed Table -->
+        <div class="card table-card">
+          <div class="card-header table-header">
+            <div>
+              <h3 class="table-title">Live Scanned Jobs & Match Evaluation</h3>
+              <p class="table-subtitle text-muted">Postings evaluated in real-time from your active browser session</p>
+            </div>
+            <div class="table-actions">
+              <button id="btnClearLog" class="btn btn-ghost btn-sm">Clear List</button>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Job Title & Role</th>
+                  <th>Company</th>
+                  <th>Match Score</th>
+                  <th>Skills Overlap</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="jobsTableBody">
+                <tr class="empty-row">
+                  <td colspan="5">
+                    <div class="empty-state">
+                      <div class="empty-icon">📂</div>
+                      <p>No jobs scanned yet. Make sure Chrome is open on Naukri and click <strong>Scan Current Page</strong> or <strong>Launch Auto-Apply</strong>.</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>🔒 Privacy-First: All session tokens and credentials stay 100% inside your local Chrome instance.</span>
+      <span>Artifact: <code>applied_jobs.json</code> &amp; <code>applied_jobs.csv</code></span>
+    </footer>
+  </div>
+
+  <script src="/ui/app.js"></script>
+</body>
+</html>

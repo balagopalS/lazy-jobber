@@ -6,6 +6,10 @@
 *Resume*
 profile.json
 profile_*.json
+/*.html
+!ui/index.html
+*_files/
+dump_*.*
 
 # Application Logs & Tracking Data
 applied_jobs.json
@@ -18,6 +22,10 @@ applied_jobs.csv
 .env.local
 *.pem
 *.key
+
+# Chrome Debug Profile & Data
+chrome-dev-profile/
+browser_data/
 
 # Python Bytecode & Environments
 __pycache__/
@@ -34,7 +42,7 @@ env/
 *.swp
 *.swo
 
-# Compiled Java / Package Files
+# Compiled / Package Files
 *.class
 *.jar
 *.war
