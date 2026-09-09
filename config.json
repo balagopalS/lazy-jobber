@@ -1,0 +1,41 @@
+{
+  "application_limit": 40,
+  "batch_size": 10,
+  "platforms": {
+    "naukri": {
+      "enabled": true,
+      "base_url": "https://www.naukri.com"
+    },
+    "indeed": {
+      "enabled": true,
+      "base_url": "https://www.indeed.com"
+    },
+    "linkedin": {
+      "enabled": true,
+      "base_url": "https://www.linkedin.com/jobs"
+    }
+  },
+  "search_criteria": {
+    "keywords": [
+      "Senior Backend Engineer",
+      "Java Backend Engineer",
+      "Java Spring Boot Developer",
+      "Senior Software Engineer Java",
+      "Microservices Developer Java"
+    ],
+    "locations": [
+      "Bengaluru",
+      "Bangalore",
+      "Remote",
+      "India"
+    ],
+    "min_experience_years": 3,
+    "max_experience_years": 7,
+    "matching_score_threshold": 0.65
+  },
+  "safety": {
+    "headless": false,
+    "delay_between_applications_seconds": 3,
+    "max_daily_applications": 40
+  }
+}
