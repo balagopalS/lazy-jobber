@@ -28,9 +28,6 @@
         <button id="btnCheckCdp" class="btn btn-secondary btn-sm" title="Re-check Chrome port 9222">
           🔄 Check Port 9222
         </button>
-        <button id="btnRestartAll" class="btn btn-danger btn-sm" title="Kill zombie processes & restart backend server">
-          ⚡ Restart Server
-        </button>
       </div>
     </header>
 
@@ -56,22 +53,69 @@
           </div>
         </section>
 
+        <!-- Autonomous Agent Control Panel -->
+        <section class="card config-card">
+          <div class="card-header">
+            <span class="section-tag">AUTONOMOUS AGENT</span>
+            <span id="agentStateBadge" class="badge badge-warning">IDLE</span>
+          </div>
+
+          <div style="margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--text-secondary);">
+            <strong>Current Action:</strong>
+            <span id="agentActionText" style="color: var(--accent);">Agent Idle</span>
+          </div>
+
+          <div class="action-buttons" style="margin-top: 0.5rem;">
+            <button id="btnStartAgent" class="btn btn-primary">
+              🤖 Start Autonomous Agent
+            </button>
+            <button id="btnStopAgent" class="btn btn-danger" style="display: none;">
+              ⏹ Stop Agent Loop
+            </button>
+          </div>
+        </section>
+
+        <!-- AI Inference Engine Settings -->
+        <section class="card config-card">
+          <div class="card-header">
+            <span class="section-tag">AI INFERENCE PROVIDER</span>
+          </div>
+
+          <div class="form-group">
+            <label for="aiProviderSelect">Inference Engine</label>
+            <select id="aiProviderSelect" class="form-input">
+              <option value="ollama" selected>Ollama (Local LLM)</option>
+              <option value="openrouter">OpenRouter (Cloud API)</option>
+            </select>
+          </div>
+
+          <!-- Ollama Sub-fields -->
+          <div id="ollamaFields" class="form-group">
+            <label for="ollamaUrlInput">Ollama Base URL</label>
+            <input type="text" id="ollamaUrlInput" class="form-input" value="http://localhost:11434">
+            <label for="ollamaModelInput" style="margin-top: 0.5rem;">Model Name</label>
+            <input type="text" id="ollamaModelInput" class="form-input" value="llama3">
+          </div>
+
+          <!-- OpenRouter Sub-fields -->
+          <div id="openrouterFields" class="form-group" style="display: none;">
+            <label for="openrouterApiKey">OpenRouter API Key</label>
+            <input type="password" id="openrouterApiKey" class="form-input" placeholder="sk-or-v1-...">
+            <label for="openrouterModelInput" style="margin-top: 0.5rem;">Model Identifier</label>
+            <input type="text" id="openrouterModelInput" class="form-input" value="meta-llama/llama-3.1-8b-instruct:free">
+          </div>
+
+          <button id="btnSaveAiConfig" class="btn btn-secondary btn-sm" style="width: 100%;">
+            💾 Save AI Provider Config
+          </button>
+        </section>
+
         <!-- Automation Parameters -->
         <section class="card config-card">
           <div class="card-header">
-            <span class="section-tag">JOBBER PARAMETERS</span>
+            <span class="section-tag">SEARCH CRITERIA & LIMITS</span>
           </div>
           
-          <div class="form-group">
-            <label for="platformSelect">Target Platform</label>
-            <select id="platformSelect" class="form-input">
-              <option value="naukri" selected>Naukri.com (CDP Mode)</option>
-              <option value="linkedin" disabled>LinkedIn (Coming soon)</option>
-              <option value="indeed" disabled>Indeed (Coming soon)</option>
-            </select>
-            <span class="form-helper">Controls your live browser via Remote Debugging.</span>
-          </div>
-
           <div class="form-row">
             <div class="form-group">
               <label for="appLimitInput">Session Limit</label>
@@ -85,19 +129,11 @@
 
           <div class="action-buttons">
             <button id="btnStartScan" class="btn btn-outline" disabled>
-              🔎 Scan Current Page
+              🔎 Manual Scan Current Page
             </button>
-            <button id="btnStartJobber" class="btn btn-primary" disabled>
-              🚀 Launch Auto-Apply
+            <button id="btnStartJobber" class="btn btn-secondary" disabled>
+              🚀 1-Click Batch Apply
             </button>
-            <button id="btnStopJobber" class="btn btn-danger" style="display: none;">
-              ⏹ Stop Execution
-            </button>
-          </div>
-
-          <div class="notice-box">
-            <strong>💡 Option B Remote Debugging:</strong>
-            <p>Ensure Chrome was launched via <code>launch_chrome.bat</code> and you are logged into Naukri.</p>
           </div>
         </section>
       </aside>
@@ -122,9 +158,22 @@
             <span class="metric-sub text-muted">Skill overlap</span>
           </div>
           <div class="metric-card">
-            <span class="metric-label">Engine Status</span>
-            <span id="metricStatus" class="metric-value status-idle">Ready</span>
-            <span id="metricStatusSub" class="metric-sub text-muted">Idle</span>
+            <span class="metric-label">Agent Status</span>
+            <span id="metricStatus" class="metric-value status-idle">Idle</span>
+            <span id="metricStatusSub" class="metric-sub text-muted">Ready</span>
+          </div>
+        </div>
+
+        <!-- Terminal Log View Console -->
+        <div class="terminal-card">
+          <div class="terminal-header">
+            <span class="terminal-title">🖥️ Centralized Terminal & CDP Log Stream</span>
+            <div>
+              <button id="btnClearTerminal" class="btn btn-ghost btn-sm" style="padding: 0.2rem 0.5rem;">Clear Log</button>
+            </div>
+          </div>
+          <div id="terminalBody" class="terminal-body">
+            <div class="log-line-info">[SYSTEM] Connected to Lazy-Jobber log stream...</div>
           </div>
         </div>
 
@@ -134,9 +183,6 @@
             <div>
               <h3 class="table-title">Live Scanned Jobs & Match Evaluation</h3>
               <p class="table-subtitle text-muted">Postings evaluated in real-time from your active browser session</p>
-            </div>
-            <div class="table-actions">
-              <button id="btnClearLog" class="btn btn-ghost btn-sm">Clear List</button>
             </div>
           </div>
 
@@ -156,7 +202,7 @@
                   <td colspan="5">
                     <div class="empty-state">
                       <div class="empty-icon">📂</div>
-                      <p>No jobs scanned yet. Make sure Chrome is open on Naukri and click <strong>Scan Current Page</strong> or <strong>Launch Auto-Apply</strong>.</p>
+                      <p>No jobs scanned yet. Ensure Chrome is open on Naukri and start the Autonomous Agent or click <strong>Scan Current Page</strong>.</p>
                     </div>
                   </td>
                 </tr>

@@ -25,6 +25,7 @@ applied_jobs.csv
 
 # Chrome Debug Profile & Data
 chrome-dev-profile/
+chrome_profile/
 browser_data/
 
 # Python Bytecode & Environments

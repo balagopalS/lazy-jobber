@@ -3,6 +3,10 @@ import time
 import re
 from typing import Dict, Any, List, Optional
 from playwright.sync_api import sync_playwright, Page, BrowserContext
+from src.logger import get_logger
+from src.ai.solver import QuestionSolver
+
+logger = get_logger("naukri_cdp")
 
 class NaukriCDPAutomator:
     """Automates real job scanning and application on Naukri via Chrome Remote Debugging (CDP)."""
@@ -300,37 +304,65 @@ class NaukriCDPAutomator:
         except Exception as e:
             return {"success": False, "applied_count": 0, "error": str(e)}
 
-    def _handle_chatbot_prompts(self, max_prompts: int = 4):
-        """Detects and answers interactive recruiter chatbot / questionnaire prompts."""
+    def _handle_chatbot_prompts(self, solver: Optional[QuestionSolver] = None, max_prompts: int = 4):
+        """Detects and answers interactive recruiter chatbot / questionnaire prompts using AI solver."""
         if not self.page:
             return
 
-        for _ in range(max_prompts):
+        if not solver:
             try:
-                # Check if modal exists
-                save_btn = self.page.query_selector("button:has-text('Save'), .bot-save, button.waves-effect:has-text('Save')")
+                solver = QuestionSolver()
+            except Exception as e:
+                logger.warning(f"Could not initialize QuestionSolver: {e}")
+
+        for step in range(max_prompts):
+            try:
+                # Check if chatbot / question modal exists
+                save_btn = self.page.query_selector("button:has-text('Save'), .bot-save, button.waves-effect:has-text('Save'), button:has-text('Submit')")
                 if not save_btn:
                     break
 
-                # Look for radio buttons e.g. "Yes" for relocation / living in Bengaluru
-                yes_opt = self.page.query_selector("label:has-text('Yes'), input[value='Yes'], .radio-wrap:has-text('Yes')")
-                if yes_opt:
-                    yes_opt.click()
-                    time.sleep(0.5)
+                # Extract question label text from modal
+                q_elem = self.page.query_selector(".bot-question, .modal-title, .question-text, label.bot-label, div[class*='question']")
+                q_text = q_elem.inner_text().strip() if q_elem else "Recruiter screening question"
+                logger.info(f"🤖 Recruiter Prompt Detected [{step+1}/{max_prompts}]: '{q_text}'")
 
-                # If numeric input required (e.g. experience years)
-                num_input = self.page.query_selector("input[type='number'], input.bot-input")
+                # Handle radio choices e.g. Yes/No
+                radio_options = self.page.query_selector_all("label:has-text('Yes'), label:has-text('No'), .radio-wrap")
+                if radio_options:
+                    opts_text = [r.inner_text().strip() for r in radio_options]
+                    solution = solver.solve_question(q_text, field_type="radio", options=opts_text) if solver else {"answer": "Yes"}
+                    target_ans = solution.get("answer", "Yes")
+                    logger.info(f"  -> AI Decision ({solution.get('source', 'fallback')}): Selected '{target_ans}'")
+
+                    clicked = False
+                    for r in radio_options:
+                        if target_ans.lower() in r.inner_text().strip().lower():
+                            r.click()
+                            clicked = True
+                            break
+                    if not clicked and radio_options:
+                        radio_options[0].click()
+                    time.sleep(0.4)
+
+                # Handle text / numeric input fields
+                num_input = self.page.query_selector("input[type='number'], input[type='text'], input.bot-input, textarea")
                 if num_input and not num_input.input_value():
-                    num_input.fill("4.5")
+                    solution = solver.solve_question(q_text, field_type="text") if solver else {"answer": "4.5"}
+                    val = str(solution.get("answer", "4.5"))
+                    logger.info(f"  -> AI Decision ({solution.get('source', 'fallback')}): Filling '{val}'")
+                    num_input.fill(val)
                     time.sleep(0.3)
 
-                # Click Save
+                # Click Save / Submit button
                 if save_btn.is_enabled():
                     save_btn.click()
+                    logger.info("  -> Saved prompt answer cleanly.")
                     time.sleep(1.5)
                 else:
                     break
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Error handling chatbot prompt: {e}")
                 break
 
     def close(self):

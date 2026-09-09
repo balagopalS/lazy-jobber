@@ -5,18 +5,22 @@ import urllib.parse
 import os
 import sys
 import threading
-import subprocess
 import time
 from typing import Dict, Any
 
+from src.logger import setup_logger, get_logger, get_recent_logs
+from src.process_manager import ProcessManager, ensure_chrome_running
 from src.parser import ProfileManager
 from src.matcher import JobMatcher
 from src.platforms.naukri_cdp import NaukriCDPAutomator
+from src.agent import JobberAgent
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
+logger = setup_logger()
 PORT = 5000
+agent_instance = JobberAgent()
 
 class JobberHTTPHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -27,7 +31,7 @@ class JobberHTTPHandler(http.server.SimpleHTTPRequestHandler):
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
 
-        # Serve UI
+        # Serve UI Index
         if path in ["/", "/index.html"]:
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -42,6 +46,29 @@ class JobberHTTPHandler(http.server.SimpleHTTPRequestHandler):
         # API: Profile & Config
         elif path == "/api/profile":
             self.send_json_response(self.get_profile_data())
+            return
+
+        # API: Logs Stream / Recent logs
+        elif path == "/api/logs":
+            limit = int(query.get("limit", [100])[0])
+            self.send_json_response({"success": True, "logs": get_recent_logs(limit)})
+            return
+
+        # API: Agent Status
+        elif path == "/api/agent/status":
+            self.send_json_response(agent_instance.get_status())
+            return
+
+        # API: Start Agent Loop
+        elif path == "/api/agent/start":
+            res = agent_instance.start()
+            self.send_json_response(res)
+            return
+
+        # API: Stop Agent Loop
+        elif path == "/api/agent/stop":
+            res = agent_instance.stop()
+            self.send_json_response(res)
             return
 
         # API: Check CDP connection to Chrome port 9222
@@ -83,7 +110,7 @@ class JobberHTTPHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json_response({"success": True, "count": len(scored_jobs), "jobs": scored_jobs})
             return
 
-        # API: Execute 1-click batch application for up to 5 jobs
+        # API: Execute 1-click batch application
         elif path == "/api/cdp/apply_batch":
             min_score = float(query.get("min_score", [65])[0])
             automator = NaukriCDPAutomator()
@@ -102,32 +129,41 @@ class JobberHTTPHandler(http.server.SimpleHTTPRequestHandler):
                 tracker = ApplicationTracker()
                 for job in res.get("jobs", []):
                     tracker.record_application(
-                        job_id=job.get("job_id", ""),
-                        title=job.get("title", ""),
-                        company=job.get("company", ""),
-                        platform="Naukri",
-                        location="Bengaluru",
-                        match_score=job.get("match_score", 0),
-                        status="APPLIED"
+                        job,
+                        status="APPLIED",
+                        notes="Manual Batch Apply via Web Dashboard"
                     )
 
             self.send_json_response(res)
             return
 
-        # API: Kill zombie python/browser tasks and reload server
-        elif path == "/api/system/restart":
-            self.send_json_response({"success": True, "message": "Restarting server cleanly in 1s..."})
-            def do_restart():
-                time.sleep(1)
-                curr_pid = os.getpid()
-                # Run cleanup powershell command to restart python server.py
-                subprocess.Popen(
-                    f'powershell -Command "Start-Sleep -Seconds 1; Start-Process -FilePath \'{sys.executable}\' -ArgumentList \'server.py\'"',
-                    shell=True
-                )
-                os._exit(0)
+        self.send_error(404, "Endpoint not found")
 
-            threading.Thread(target=do_restart, daemon=True).start()
+    def do_POST(self):
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        content_len = int(self.headers.get("Content-Length", 0))
+        post_body = self.rfile.read(content_len) if content_len > 0 else b"{}"
+
+        try:
+            body = json.loads(post_body.decode("utf-8"))
+        except Exception:
+            body = {}
+
+        # API: Update AI Config
+        if path == "/api/config/ai":
+            try:
+                with open("config.json", "r", encoding="utf-8") as f:
+                    config = json.load(f)
+
+                config["ai_config"] = body
+                with open("config.json", "w", encoding="utf-8") as f:
+                    json.dump(config, f, indent=2)
+
+                logger.info(f"Updated AI Config: provider={body.get('provider')}")
+                self.send_json_response({"success": True, "message": "AI config updated successfully."})
+            except Exception as e:
+                self.send_json_response({"success": False, "error": str(e)}, status=500)
             return
 
         self.send_error(404, "Endpoint not found")
@@ -154,15 +190,22 @@ class JobberHTTPHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps(data).encode("utf-8"))
 
 def start_server():
+    # 1. Auto-launch Chrome CDP if not alive
+    logger.info("Initializing Lazy-Jobber environment...")
+    ensure_chrome_running(cdp_port=9222)
+
+    # 2. Bind TCP server socket cleanly
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("", PORT), JobberHTTPHandler) as httpd:
-        print("=" * 60)
-        print(f"🚀 Lazy-Jobber Web Dashboard running at: http://localhost:{PORT}")
-        print("=" * 60)
+        logger.info("=" * 65)
+        logger.info(f"🚀 Lazy-Jobber Web Dashboard running at: http://localhost:{PORT}")
+        logger.info("=" * 65)
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
-            print("\nShutting down server...")
+            logger.info("\nShutting down server cleanly...")
+            agent_instance.stop()
+            ProcessManager().cleanup()
 
 if __name__ == "__main__":
     start_server()

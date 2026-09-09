@@ -37,5 +37,16 @@
     "headless": false,
     "delay_between_applications_seconds": 3,
     "max_daily_applications": 40
+  },
+  "ai_config": {
+    "provider": "ollama",
+    "ollama": {
+      "base_url": "http://localhost:11434",
+      "model": "llama3"
+    },
+    "openrouter": {
+      "api_key": "",
+      "model": "meta-llama/llama-3.1-8b-instruct:free"
+    }
   }
 }
