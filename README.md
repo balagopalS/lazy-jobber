@@ -1,31 +1,31 @@
 # lazy-jobber
 
-Automated job search and application tool using Chrome Remote Debugging (CDP) and candidate profile matching.
+Automated job search and application suite using Chrome Remote Debugging (CDP), candidate profile matching, and AI-assisted screening response generation.
 
 ---
 
 ## Overview
 
-Most job application bots fail because logins, Cloudflare verification, and OTPs block automated scripts. 
+Traditional job application bots often fail due to login requirements, bot detection, or two-factor authentication.
 
-lazy-jobber avoids this by attaching directly to an existing, authenticated Google Chrome session via Chrome DevTools Protocol (port 9222). You log in manually, and the tool automates scanning, relevance scoring, and submitting batch applications.
+`lazy-jobber` attaches directly to an active Google Chrome session using the Chrome DevTools Protocol (CDP) on port 9222. When you start the application server, it automatically launches Chrome if it is not already running. Once you log in to your target job portal, the system can continuously scan job postings, evaluate candidate skill match scores, and handle application questionnaires using local or cloud AI models.
 
 ---
 
-## How It Works
+## Key Features
 
-1. Launch Chrome in remote debugging mode using the provided script.
-2. Sign in to your account manually in the opened Chrome window.
-3. Open the lazy-jobber dashboard at http://localhost:5000.
-4. Scan job postings on your active tab and view real-time match scores based on your profile skills.
-5. Trigger automated applications (including batch selection and handling common recruiter questionnaires like relocation and experience).
-6. View real-time logs saved to your local machine.
+- **Automated Chrome Lifecycle**: Automatically detects or launches Chrome with remote debugging enabled on port 9222.
+- **Autonomous Agent Mode**: Runs a background monitoring loop to scan active job pages, scroll listings, and submit batch applications automatically.
+- **AI Screening Solver**: Integrates with local models (Ollama) or cloud APIs (OpenRouter) to answer recruiter screening questions using candidate profile context.
+- **Process Management**: Automatically manages sub-process handles and releases ports cleanly on application exit or restart.
+- **Real-Time Logging**: Displays HTTP server and CDP browser events in a live terminal stream on the web dashboard.
+- **Application Tracking**: Saves application history and match metadata to local `applied_jobs.json` and `applied_jobs.csv` files.
 
 ---
 
 ## Quick Start
 
-### 1. Set Up Virtual Environment
+### 1. Set Up Environment
 
 ```powershell
 python -m venv venv
@@ -33,39 +33,36 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-### 2. Start Chrome with Debugging
-
-Run the launcher batch file:
-
-```powershell
-.\launch_chrome.bat
-```
-
-Log in to your job portal (such as Naukri) in this Chrome window.
-
-### 3. Start the Web Dashboard
+### 2. Start Application Server
 
 ```powershell
 python server.py
 ```
 
-Open your browser at:
+`server.py` will verify port 9222 and launch Google Chrome automatically if it is not currently running.
+
+### 3. Open Web Dashboard
+
+Navigate to:
 ```
 http://localhost:5000
 ```
 
-From the dashboard, verify the connection on port 9222, scan jobs on the active tab, and run auto-apply.
+From the dashboard you can:
+- Configure AI inference providers (Ollama or OpenRouter).
+- Start or stop the Autonomous Agent loop.
+- Manually scan and apply to active job postings.
+- Monitor live terminal and CDP logs.
 
 ---
 
-## Process Management
+## AI Provider Setup
 
-If a previous background server instance is holding port 5000:
-- Click the "Restart Server" button on the dashboard navbar, or
-- Run the cleanup script:
-  ```powershell
-  .\restart_server.bat
-  ```
+### Local LLM (Ollama)
+Set the provider to `ollama` in the dashboard or `config.json`. Ensure Ollama is running locally on `http://localhost:11434`.
+
+### Cloud API (OpenRouter)
+Set the provider to `openrouter` in the dashboard or `config.json`, and supply your API key and model identifier (such as `meta-llama/llama-3.1-8b-instruct:free`).
 
 ---
 
@@ -73,29 +70,32 @@ If a previous background server instance is holding port 5000:
 
 ```
 lazy-jobber/
-├── launch_chrome.bat       # Starts Chrome with remote debugging on port 9222
-├── restart_server.bat      # Terminates lingering processes and restarts server
-├── server.py               # Local HTTP server and API router
+├── server.py               # Application entry point, HTTP server, and API router
 ├── main.py                 # CLI entry point
-├── config.json             # Search criteria, limits, and thresholds
-├── profile.json            # Candidate skills, experience, and target roles
-├── ui/                     # Web dashboard
-│   ├── index.html          # Dashboard interface
-│   ├── app.css             # Interface styling
-│   └── app.js              # Client-side state and execution handlers
+├── config.json             # Search criteria, safety limits, and AI configuration
+├── profile.json            # Candidate skills, work history, and target roles
+├── ui/                     # Web dashboard interface (HTML/CSS/JS)
 └── src/
+    ├── agent.py            # Autonomous background loop controller
+    ├── logger.py           # Centralized logging module with ring buffer for UI stream
+    ├── process_manager.py  # Chrome process launcher and clean shutdown handler
+    ├── ai/
+    │   ├── provider.py     # Base abstract class for LLM providers
+    │   ├── ollama_provider.py    # Local Ollama integration
+    │   ├── openrouter_provider.py# Cloud OpenRouter API integration
+    │   └── solver.py       # Candidate context question solver
     ├── platforms/
     │   └── naukri_cdp.py   # Chrome DevTools automation for Naukri
-    ├── parser.py           # Profile reader
+    ├── parser.py           # Candidate profile loader
     ├── matcher.py          # Skill scoring and relevance calculator
-    ├── tracker.py          # Application tracker and deduplicator
-    └── applier.py          # Application batch controller
+    ├── tracker.py          # Application tracker and record exporter
+    └── applier.py          # Batch application controller
 ```
 
 ---
 
 ## Privacy and Security
 
-- No credentials stored: Passwords and session tokens are never saved or accessed by scripts.
-- Local execution: All profile matching and application records remain strictly on your local device.
-- Configurable limits: Match score thresholds and application caps prevent unintended submissions.
+- **Local Credentials**: Passwords and session tokens are never stored by the application.
+- **Local Data Storage**: Candidate profiles and application records remain on your local machine.
+- **Configurable Thresholds**: Minimum match score requirements and daily application caps prevent unintended submissions.
